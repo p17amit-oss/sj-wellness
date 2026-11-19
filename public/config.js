@@ -1,7 +1,7 @@
 /* SJ Wellness – settings. None of these are secrets. See README. */
 window.SJ_CONFIG = {
   // Apps Script web app URL (Deploy → Manage deployments → Web app URL, ends with /exec)
-  API_URL: 'PASTE_APPS_SCRIPT_WEB_APP_URL',
+  API_URL: 'https://script.google.com/macros/s/AKfycbyF-6P49is0AdrwpghY-NXgP0UbxsaPVYBto-RXaQ0fGifKzCPwfT3r47n6Rmgw4BbE/exec',
   // How the coach app gets in. Must match AUTH_MODE in the Apps Script properties.
   //   'open'   no login (testing with made-up families only)
   //   'key'    no login screen; the coach opens /coach/?key=<COACH_KEY> once on her phone
