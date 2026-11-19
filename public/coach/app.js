@@ -6,12 +6,16 @@ const JOIN_DAYS = 30; // a child counts as "Just joined" for their first month
 const ROOT = document.getElementById('app');
 
 /* ---------------- state ---------------- */
+const MODE = CFG.AUTH === 'google' || CFG.AUTH === 'key' ? CFG.AUTH : 'open';
+const KEY_STORE = 'sjw_coach_key';
+let COACH_KEY = '';
 let FB = null;           // { auth, mods } once Firebase loads
 let USER = null;         // signed-in user (or dev user)
 let DATA = null;         // last data from the server
 let LOADED_AT = 0;
 let FROM_CACHE = false;
 let LOADING = false;
+let STARTED = false;
 const C = { screen: 'children', view: 'list', q: '', stage: 'all', fu: 'continue', openKey: null, listY: 0 };
 let KIDS = [], REFS = [], VOICES = [];
 
@@ -20,11 +24,19 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/coach/sw.js
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (DATA) rerender(); });
 
-boot();
-
 async function boot() {
   page('Opening…', '', true);
-  if (CFG.DEV_AUTH) { USER = { email: 'dev@localhost', getIdToken: async () => 'dev' }; return start(); }
+  if (MODE === 'open') { USER = { email: '' }; return start(); }
+  if (MODE === 'key') {
+    const fromUrl = new URLSearchParams(location.search).get('key');
+    if (fromUrl) {
+      try { store && store.setItem(KEY_STORE, fromUrl); } catch (e) {}
+      history.replaceState(null, '', '/coach/'); // keep the key out of the address bar and of shared screenshots
+    }
+    COACH_KEY = fromUrl || (store && store.getItem(KEY_STORE)) || '';
+    if (!COACH_KEY) { page('Open your coach link', 'Please open the coach link Amit sent you, once. After that this app remembers it.'); return; }
+    USER = { email: '' }; return start();
+  }
   try {
     const appMod = await import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-app.js`);
     const authMod = await import(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-auth.js`);
@@ -74,7 +86,7 @@ function friendlyAuthError(err) {
 async function signOutNow() {
   try { store && store.removeItem(CACHE_KEY); } catch (e) {}
   DATA = null;
-  if (FB) await FB.mods.signOut(FB.auth); else location.reload();
+  if (MODE === 'google' && FB) await FB.mods.signOut(FB.auth); else location.reload();
 }
 
 function page(title, text, spinner) {
@@ -85,11 +97,15 @@ function page(title, text, spinner) {
     spinner && h('div', { class: 'spinner', role: 'status', 'aria-label': 'Loading' })));
 }
 
-async function token() { return USER ? USER.getIdToken() : ''; }
+async function token() { return MODE === 'google' && USER ? USER.getIdToken() : ''; }
 async function call(action, payload) {
-  try { return await api(action, payload, await token()); }
+  const body = MODE === 'key' ? Object.assign({ coachKey: COACH_KEY }, payload || {}) : payload;
+  try { return await api(action, body, await token()); }
   catch (err) {
-    if (err.code === 'AUTH') { toast('Please sign in again.'); if (FB) FB.mods.signOut(FB.auth); }
+    if (err.code === 'AUTH') {
+      if (MODE === 'google') { toast('Please sign in again.'); if (FB) FB.mods.signOut(FB.auth); }
+      if (MODE === 'key') { try { store && store.removeItem(KEY_STORE); } catch (e) {} page('This coach link is not valid', err.message); }
+    }
     throw err;
   }
 }
@@ -97,7 +113,7 @@ async function call(action, payload) {
 async function start() {
   if (loadCache()) { FROM_CACHE = true; buildCoach(); render(); } else page('Loading your swimmers…', '', true);
   await refresh(true);
-  setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 3 * 60 * 1000);
+  if (!STARTED) { STARTED = true; setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 3 * 60 * 1000); }
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && USER && Date.now() - LOADED_AT > 60 * 1000) refresh(); });
 window.addEventListener('online', () => { if (USER) refresh(); });
@@ -264,7 +280,7 @@ function childrenScreen() {
   cv.appendChild(bar);
   fillKids(list);
   cv.appendChild(list);
-  cv.appendChild(h('p', { class: 'signout' }, 'Signed in as ' + (USER && USER.email || '') + '. ', h('button', { type: 'button', class: 'linkbtn', onclick: signOutNow }, 'Sign out')));
+  if (MODE === 'google') cv.appendChild(h('p', { class: 'signout' }, 'Signed in as ' + (USER && USER.email || '') + '. ', h('button', { type: 'button', class: 'linkbtn', onclick: signOutNow }, 'Sign out')));
   return cv;
 }
 function fillKids(list) {
@@ -582,3 +598,6 @@ async function openFeedbackSheet(c, reminder) {
     call('markLinkSent', { token: link.token }).catch((e) => toast(e.message));
   });
 }
+
+/* Start last, after every constant above is defined. */
+boot();

@@ -12,12 +12,12 @@ const port = Number(process.env.PORT || 8080);
 const dataFile = process.env.DEV_DATA === 'memory' ? null : path.join(root, 'tools', '.dev-data.json');
 const emu = createEmulator({
   codePath: path.join(root, 'apps-script', 'Code.gs'),
-  props: { COACH_EMAILS: 'coach@example.com', NOTIFY_EMAIL: 'coach@example.com', FIREBASE_API_KEY: 'dev', APP_URL: 'http://localhost:' + port },
+  props: { AUTH_MODE: process.env.AUTH_MODE || 'open', COACH_KEY: 'test-coach-key-123', COACH_EMAILS: 'coach@example.com', NOTIFY_EMAIL: 'coach@example.com', FIREBASE_API_KEY: 'dev', APP_URL: 'http://localhost:' + port },
   users: { dev: 'coach@example.com', intruder: 'someone@example.com' },
   dataFile
 });
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-const DEV_CONFIG = `window.SJ_CONFIG = { API_URL: '/api', FIREBASE: {}, MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A', DEV_AUTH: true };`;
+const DEV_CONFIG = `window.SJ_CONFIG = { API_URL: '/api', AUTH: '${process.env.AUTH_MODE || 'open'}', FIREBASE: {}, MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A' };`;
 
 function send(res, code, type, body) { res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'Referrer-Policy': 'no-referrer' }); res.end(body); }
 function fileFor(p) {

@@ -7,7 +7,7 @@ import { createEmulator } from './gas-emulator.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const emu = createEmulator({
   codePath: path.join(root, 'apps-script', 'Code.gs'),
-  props: { COACH_EMAILS: 'Coach@Example.com, amit@example.com', NOTIFY_EMAIL: 'coach@example.com', FIREBASE_API_KEY: 'k', APP_URL: 'https://x.web.app' },
+  props: { AUTH_MODE: 'google', COACH_EMAILS: 'Coach@Example.com, amit@example.com', NOTIFY_EMAIL: 'coach@example.com', FIREBASE_API_KEY: 'k', APP_URL: 'https://x.web.app' },
   users: { good: 'coach@example.com', other: 'stranger@example.com' }
 });
 let n = 0; const ok = (m) => { n++; console.log('✓ ' + m); };
@@ -96,4 +96,16 @@ r = emu.post({ action: 'feedbackContext', token: openRow[iT] }); assert.equal(r.
 
 r = emu.post('not json'); assert.equal(r.error, 'BAD_REQUEST'); ok('garbage input is refused cleanly');
 r = emu.post({ action: 'dropTables' }); assert.equal(r.error, 'BAD_REQUEST'); ok('unknown actions are refused');
+// access modes
+const code = path.join(root, 'apps-script', 'Code.gs');
+const open = createEmulator({ codePath: code, props: {} });
+open.post({ action: 'submitOnboarding', data: onboarding() });
+r = open.post({ action: 'getAll' }); assert.equal(r.ok, true); assert.equal(r.data.children.length, 1); ok('AUTH_MODE missing = open: coach actions work without login (testing)');
+const keyed = createEmulator({ codePath: code, props: { AUTH_MODE: 'key', COACH_KEY: 'k3y-long-random-text' } });
+r = keyed.post({ action: 'getAll' }); assert.equal(r.error, 'AUTH'); ok('key mode: no key is refused');
+r = keyed.post({ action: 'getAll', coachKey: 'k3y-long-random-texT' }); assert.equal(r.error, 'AUTH'); ok('key mode: a wrong key is refused');
+r = keyed.post({ action: 'getAll', coachKey: 'k3y-long-random-text' }); assert.equal(r.ok, true); ok('key mode: the right key works');
+r = keyed.post({ action: 'submitOnboarding', data: onboarding() }); assert.equal(r.ok, true); ok('key mode: parent forms still need no key');
+const noKey = createEmulator({ codePath: code, props: { AUTH_MODE: 'key' } });
+r = noKey.post({ action: 'getAll', coachKey: 'anything' }); assert.equal(r.error, 'CONFIG'); ok('key mode without COACH_KEY set refuses everyone');
 console.log(`\nAll ${n} backend checks passed.`);

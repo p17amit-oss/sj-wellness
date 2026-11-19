@@ -6,12 +6,12 @@ Two parent links and one coach app:
 |---|---|---|
 | Parents | `https://<project>.web.app/join/` | Onboarding form, before the first session. Same link for every family. |
 | Parents | `https://<project>.web.app/f/<code>` | Feedback form. One personal link per child, made by the coach app. |
-| Coach Sonal | `https://<project>.web.app/coach/` | Installable phone app (PWA). Google sign-in, works offline at the pool. |
+| Coach Sonal | `https://<project>.web.app/coach/` | Installable phone app (PWA). Works offline at the pool. Login can be switched on later. |
 
 ```
 Parent's phone ──► /join/ or /f/<code>  ──┐
                                            ├─► Apps Script web app ──► Google Sheet "SJ Wellness Data"
-Coach app (/coach/, Google sign-in) ──────┘          │                    (Children, Feedback, Links, Referrals)
+Coach app (/coach/) ──────────────────────┘          │                    (Children, Feedback, Links, Referrals)
                                                      └─► email alert to Coach Sonal for every new form
 ```
 
@@ -21,38 +21,38 @@ Coach app (/coach/, Google sign-in) ──────┘          │          
 child's and parent's first names, saves the answers under that child's ID, and closes the code. A used code
 shows "Thank you", a made-up code shows "not valid", and codes expire after 60 days.
 
-**Privacy.** Parent pages can only add a form; they can never read anything. Only Google accounts listed in
-`COACH_EMAILS` can read data. Text is stored as plain text in the Sheet (no formulas). Keep the Sheet unshared
-and turn on 2-step verification for the Google account that owns it.
+**Coach access (testing phase).** The coach app currently has **no login** (`AUTH_MODE` open). Anyone who
+finds the coach address or the server URL can read every child's details, so use **made-up test families
+only** until you switch on one of the protected modes below. Parent pages can only add a form in every mode;
+they can never read anything. Text is stored as plain text in the Sheet (no formulas).
+
+| Mode | Coach experience | Use when |
+|---|---|---|
+| `open` | No login | Testing with made-up families |
+| `key` | No login screen; she opens a private link `…/coach/?key=…` once and the phone remembers it | Real families, before Google sign-in is set up |
+| `google` | Signs in once with her Google account | Long term |
+
+The mode is set in two places that must match: `AUTH_MODE` in the Apps Script properties and `AUTH` in `public/config.js`.
 
 ---
 
-## One-time setup (about 30 minutes)
+## One-time setup for testing (about 20 minutes)
 
 Use one Google account for everything below. Best: a dedicated account for SJ Wellness that Coach Sonal owns
 and you can also sign in to. Whoever owns the Sheet owns the data.
 
-### 1. Firebase project (hosting + sign-in)
-1. Go to <https://console.firebase.google.com> → **Create a project** → name it e.g. `sj-wellness`. Analytics: off.
-2. **Build → Authentication → Get started → Sign-in method → Google → Enable → Save.**
-3. **Project settings (gear) → General → Your apps → Web (`</>`)** → nickname `web` → Register (no Hosting checkbox needed).
-   Copy `apiKey`, `projectId`, `appId` from the config shown.
-4. **Authentication → Settings → Authorized domains**: check that `<project>.web.app` is listed (it is by default).
-5. Sign-in runs on the `web.app` address, so Google must accept it: open <https://console.cloud.google.com> (same project)
-   → **APIs & Services → Credentials → OAuth 2.0 Client IDs → "Web client (auto created by Google Service)"** and add
-   - Authorized JavaScript origins: `https://<project>.web.app`
-   - Authorized redirect URIs: `https://<project>.web.app/__/auth/handler`
-6. Leave the Firebase API key without website restrictions: the server also uses it to check sign-ins.
+### 1. Firebase project (hosting only, for now)
+Go to <https://console.firebase.google.com> → **Create a project** → name it e.g. `sj-wellness`. Analytics: off.
+Note the project ID. Nothing else is needed while testing.
 
 ### 2. Google Sheet + Apps Script (data + server)
 1. Create a Google Sheet named **SJ Wellness Data**.
 2. **Extensions → Apps Script.** Delete the sample code, paste all of `apps-script/Code.gs`.
    In **Project Settings** tick *Show "appsscript.json"* and replace it with `apps-script/appsscript.json`.
 3. **Project Settings → Script properties → Add:**
-   - `COACH_EMAILS` = Coach Sonal's Gmail, plus yours, comma separated
-   - `NOTIFY_EMAIL` = where new-form alerts go (Coach Sonal's Gmail)
-   - `FIREBASE_API_KEY` = the `apiKey` from step 1.3
+   - `NOTIFY_EMAIL` = where new-form alerts go (Coach Sonal's Gmail, or yours while testing)
    - `APP_URL` = `https://<project>.web.app`
+   - (`AUTH_MODE` can stay unset; unset means open.)
 4. In the editor choose the function **setup** → **Run** → allow the permissions. Four tabs appear in the Sheet.
 5. **Deploy → New deployment → type: Web app** → Execute as **Me** → Who has access **Anyone** → Deploy.
    Copy the **Web app URL** (ends in `/exec`).
@@ -60,9 +60,9 @@ and you can also sign in to. Whoever owns the Sheet owns the data.
 Updating the server later: paste the new `Code.gs`, then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**.
 The URL stays the same.
 
-### 3. Fill in `public/config.js`
-Put in `API_URL` (step 2.5) and the Firebase values (step 1.3, with `authDomain` = `<projectId>.web.app`),
-and the project ID in `.firebaserc`. Commit and push. None of these values are secrets.
+### 3. Fill in `public/config.js` and `.firebaserc`
+`API_URL` = the Web app URL from step 2.5. Keep `AUTH: 'open'`. Put the project ID in `.firebaserc`.
+Commit and push. None of these values are secrets.
 
 ### 4. Auto-deploy from GitHub
 On a laptop with Node installed, in this repo:
@@ -78,12 +78,35 @@ git add .github && git commit -m "Add deploy workflows" && git push
 `init hosting:github` creates a deploy service account and adds it to the repo's secrets for you. After this,
 every push to `main` goes live.
 
-### 5. Put the app on Coach Sonal's phone
-Open `https://<project>.web.app/coach/` in Chrome (Android) or Safari (iPhone), sign in with her Google account,
-then **Install app** (Android) or **Share → Add to Home Screen** (iPhone). Make sure Gmail notifications are on,
-because new-form alerts arrive by email.
+### 5. Put the app on a phone
+Open `https://<project>.web.app/coach/` in Chrome (Android) or Safari (iPhone), then **Install app** (Android)
+or **Share → Add to Home Screen** (iPhone). New-form alerts arrive by email, so keep Gmail notifications on.
 
 ---
+
+## Before real families: switch on protection
+
+### Option A – private coach link (`key`, 5 minutes, no login screen)
+1. Apps Script → Script properties: `AUTH_MODE` = `key`, `COACH_KEY` = a long random text
+   (for example two UUIDs from <https://www.uuidgenerator.net/> joined together).
+2. `public/config.js`: `AUTH: 'key'`. Push.
+3. Send Coach Sonal `https://<project>.web.app/coach/?key=<COACH_KEY>` once, privately. She opens it and installs
+   the app; the phone remembers the key and removes it from the address bar. To lock out an old phone, change `COACH_KEY`.
+
+### Option B – Google sign-in (`google`, 15 minutes)
+1. Firebase console → **Build → Authentication → Get started → Sign-in method → Google → Enable → Save.**
+2. **Project settings (gear) → General → Your apps → Web (`</>`)** → nickname `web` → Register.
+   Copy `apiKey`, `projectId`, `appId` into `FIREBASE` in `public/config.js` (`authDomain` = `<projectId>.web.app`).
+3. **Authentication → Settings → Authorized domains**: check `<project>.web.app` is listed.
+4. <https://console.cloud.google.com> (same project) → **APIs & Services → Credentials → OAuth 2.0 Client IDs →
+   "Web client (auto created by Google Service)"** and add
+   - Authorized JavaScript origins: `https://<project>.web.app`
+   - Authorized redirect URIs: `https://<project>.web.app/__/auth/handler`
+5. Leave the Firebase API key without website restrictions (the server uses it to check sign-ins).
+6. Apps Script → Script properties: `AUTH_MODE` = `google`, `COACH_EMAILS` = her Gmail and yours,
+   `FIREBASE_API_KEY` = the `apiKey`. Then `public/config.js`: `AUTH: 'google'`. Push.
+
+Also: keep the Sheet unshared, turn on 2-step verification for its Google account, and delete test rows.
 
 ## Check it works (5 minutes)
 1. Open `/join/` on your phone, fill a test child, submit. An alert email should arrive and the child shows under **Just joined**.
@@ -93,8 +116,9 @@ because new-form alerts arrive by email.
 
 ## Local development
 ```bash
-node tools/dev-server.mjs        # http://localhost:8080/join/ and /coach/ (no sign-in, local test data)
-node tools/test-backend.mjs      # 31 checks against the real Code.gs
+node tools/dev-server.mjs        # http://localhost:8080/join/ and /coach/ (local test data)
+AUTH_MODE=key node tools/dev-server.mjs   # try the private-link mode: /coach/?key=test-coach-key-123
+node tools/test-backend.mjs      # 37 checks against the real Code.gs
 ```
 The dev server runs the real `Code.gs` against an in-memory stand-in for the Sheet.
 

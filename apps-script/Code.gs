@@ -8,13 +8,18 @@
  *   feedbackContext   – checks a feedback link code, returns only the child's and parent's first names
  *   submitFeedback    – saves feedback against the child the code belongs to, then closes the code
  *
- * Coach actions (need a Firebase ID token from an email listed in COACH_EMAILS):
- *   getAll, markSeen, saveNote, prepareFeedbackLink, markLinkSent, setCalledBack, setContacted
+ * Coach actions: getAll, markSeen, saveNote, prepareFeedbackLink, markLinkSent, setCalledBack, setContacted
+ * Who may call them depends on AUTH_MODE:
+ *   open   (default) anyone. For testing with made-up families only.
+ *   key    requests must carry COACH_KEY (the coach opens /coach/?key=<COACH_KEY> once). No login screen.
+ *   google Google sign-in through Firebase; the email must be in COACH_EMAILS.
  *
  * Script properties (Project Settings → Script properties):
- *   COACH_EMAILS      Google accounts allowed into the coach app, comma separated
+ *   AUTH_MODE         open | key | google   (missing = open)
+ *   COACH_KEY         long random text, only for AUTH_MODE=key
+ *   COACH_EMAILS      only for AUTH_MODE=google: allowed Google accounts, comma separated
+ *   FIREBASE_API_KEY  only for AUTH_MODE=google: Web API key of the Firebase project
  *   NOTIFY_EMAIL      where "new form" alert emails go (usually Coach Sonal's Gmail)
- *   FIREBASE_API_KEY  the Web API key of the Firebase project (used to check sign-ins)
  *   APP_URL           e.g. https://sj-wellness.web.app (used in alert emails)
  *
  * Deploy: Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone.
@@ -44,7 +49,7 @@ function doPost(e) {
     var action = String(req.action || '');
     var data;
     if (PUBLIC_ACTIONS_.hasOwnProperty(action)) data = PUBLIC_ACTIONS_[action](req);
-    else if (COACH_ACTIONS_.hasOwnProperty(action)) data = COACH_ACTIONS_[action](req, verifyCoach_(req.idToken));
+    else if (COACH_ACTIONS_.hasOwnProperty(action)) data = COACH_ACTIONS_[action](req, verifyCoach_(req));
     else throw userError_('BAD_REQUEST', 'Unknown action.');
     return json_({ ok: true, data: data });
   } catch (err) {
@@ -58,9 +63,10 @@ function doPost(e) {
 function setup() {
   Object.keys(TABLES).forEach(function (t) { sheet_(t); });
   var p = PropertiesService.getScriptProperties();
-  ['COACH_EMAILS', 'NOTIFY_EMAIL', 'FIREBASE_API_KEY', 'APP_URL'].forEach(function (k) {
+  ['NOTIFY_EMAIL', 'APP_URL'].forEach(function (k) {
     if (!p.getProperty(k)) console.log('Remember to set the script property ' + k);
   });
+  console.log('Coach access mode: ' + authMode_() + (authMode_() === 'open' ? ' (anyone with the address can read the data: test families only)' : ''));
   return 'Ready';
 }
 
@@ -226,9 +232,30 @@ var COACH_ACTIONS_ = {
   }
 };
 
-/* ============================== coach sign-in check ============================== */
+/* ============================== coach access check ============================== */
 
-function verifyCoach_(idToken) {
+function authMode_() {
+  var m = String(PropertiesService.getScriptProperties().getProperty('AUTH_MODE') || 'open').trim().toLowerCase();
+  return m === 'key' || m === 'google' ? m : 'open';
+}
+function verifyCoach_(req) {
+  var mode = authMode_();
+  if (mode === 'open') return 'open';
+  if (mode === 'key') {
+    var key = prop_('COACH_KEY');
+    if (!req.coachKey || !sameText_(String(req.coachKey), key)) throw userError_('AUTH', 'This coach link is not valid. Ask Amit for the right link.');
+    return 'key';
+  }
+  return verifyGoogle_(req.idToken);
+}
+// Compares in constant time so the key cannot be guessed letter by letter.
+function sameText_(a, b) {
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+function verifyGoogle_(idToken) {
   if (!idToken || typeof idToken !== 'string' || idToken.length > 4096) throw userError_('AUTH', 'Please sign in again.');
   var cache = CacheService.getScriptCache();
   var ck = 'tok_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken));
