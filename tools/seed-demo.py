@@ -11,7 +11,8 @@ def call(body, ok_codes=()):
                          capture_output=True, text=True).stdout
     r = json.loads(out)
     if not r.get("ok"):
-        if (r.get("error") or {}).get("code") in ok_codes: return None
+        err = r.get("error"); code = err.get("code") if isinstance(err, dict) else err
+        if code in ok_codes: return None
         raise SystemExit(f"{body['action']} failed: {r}")
     return r["data"]
 def ago(days): return (date.today() - timedelta(days=days)).isoformat()
