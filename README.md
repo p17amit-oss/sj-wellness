@@ -4,12 +4,12 @@ Two parent links and one coach app:
 
 | Who | Address | What it does |
 |---|---|---|
-| Parents | `https://<project>.web.app/join/` | Onboarding form, before the first session. Same link for every family. |
-| Parents | `https://<project>.web.app/f/<code>` | Feedback form. One personal link per child, made by the coach app. |
-| Coach Sonal | `https://<project>.web.app/coach/` | Installable phone app (PWA). Works offline at the pool. Login can be switched on later. |
+| Parents | `https://<your-site>/join/` | Onboarding form, before the first session. Same link for every family. |
+| Parents | `https://<your-site>/f/?c=<code>` | Feedback form. One personal link per child, made by the coach app. |
+| Coach Sonal | `https://<your-site>/coach/` | Installable phone app (PWA). Works offline at the pool. Login can be switched on later. |
 
 ```
-Parent's phone ──► /join/ or /f/<code>  ──┐
+Parent's phone ──► /join/ or /f/?c=<code> ┐
                                            ├─► Apps Script web app ──► Google Sheet "SJ Wellness Data"
 Coach app (/coach/) ──────────────────────┘          │                    (Children, Feedback, Links, Referrals)
                                                      └─► email alert to Coach Sonal for every new form
@@ -17,7 +17,7 @@ Coach app (/coach/) ────────────────────
 
 **How feedback maps to the right child.** When the coach taps *Ask for feedback*, the server makes a random
 32-character code and stores it in the `Links` tab next to that child's ID. The WhatsApp message carries
-`/f/<code>`. The feedback page sends only the code; the server looks up the child, shows the parent just the
+`/f/?c=<code>`. The feedback page sends only the code; the server looks up the child, shows the parent just the
 child's and parent's first names, saves the answers under that child's ID, and closes the code. A used code
 shows "Thank you", a made-up code shows "not valid", and codes expire after 60 days.
 
@@ -38,20 +38,20 @@ The mode is set in two places that must match: `AUTH_MODE` in the Apps Script pr
 
 ## One-time setup for testing (about 20 minutes)
 
-Use one Google account for everything below. Best: a dedicated account for SJ Wellness that Coach Sonal owns
-and you can also sign in to. Whoever owns the Sheet owns the data.
+It is a PWA: a website that installs on the phone's home screen and opens like an app. There is no Play Store
+or App Store step. The site is only static files (HTML, JS, CSS), so any static host works; the data and server
+logic live in Google Sheets + Apps Script.
 
-### 1. Firebase project (hosting only, for now)
-Go to <https://console.firebase.google.com> → **Create a project** → name it e.g. `sj-wellness`. Analytics: off.
-Note the project ID. Nothing else is needed while testing.
+Use one Google account for the Sheet. Best: a dedicated account for SJ Wellness that Coach Sonal owns and you
+can also sign in to. Whoever owns the Sheet owns the data.
 
-### 2. Google Sheet + Apps Script (data + server)
+### 1. Google Sheet + Apps Script (data + server)
 1. Create a Google Sheet named **SJ Wellness Data**.
 2. **Extensions → Apps Script.** Delete the sample code, paste all of `apps-script/Code.gs`.
    In **Project Settings** tick *Show "appsscript.json"* and replace it with `apps-script/appsscript.json`.
 3. **Project Settings → Script properties → Add:**
    - `NOTIFY_EMAIL` = where new-form alerts go (Coach Sonal's Gmail, or yours while testing)
-   - `APP_URL` = `https://<project>.web.app`
+   - `APP_URL` = the site address from step 3 (you can add it after step 3)
    - (`AUTH_MODE` can stay unset; unset means open.)
 4. In the editor choose the function **setup** → **Run** → allow the permissions. Four tabs appear in the Sheet.
 5. **Deploy → New deployment → type: Web app** → Execute as **Me** → Who has access **Anyone** → Deploy.
@@ -60,26 +60,24 @@ Note the project ID. Nothing else is needed while testing.
 Updating the server later: paste the new `Code.gs`, then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**.
 The URL stays the same.
 
-### 3. Fill in `public/config.js` and `.firebaserc`
-`API_URL` = the Web app URL from step 2.5. Keep `AUTH: 'open'`. Put the project ID in `.firebaserc`.
-Commit and push. None of these values are secrets.
+### 2. Fill in `public/config.js`
+`API_URL` = the Web app URL from step 1.5. Keep `AUTH: 'open'`. Commit and push. Not a secret.
 
-### 4. Auto-deploy from GitHub
-On a laptop with Node installed, in this repo:
-```bash
-npx firebase-tools@latest login
-npx firebase-tools@latest init hosting:github
-#   repository: p17amit-oss/sj-wellness
-#   run a build script before every deploy? No
-#   deploy to the live channel when a PR is merged? Yes, branch: main
-npx firebase-tools@latest deploy --only hosting      # first deploy
-git add .github && git commit -m "Add deploy workflows" && git push
-```
-`init hosting:github` creates a deploy service account and adds it to the repo's secrets for you. After this,
-every push to `main` goes live.
+### 3. Host the site (pick one; every push to `main` then goes live)
+- **Cloudflare Pages (recommended):** free, and the free plan allows business use. dash.cloudflare.com →
+  **Workers & Pages → Create → Pages → Connect to Git** → choose `p17amit-oss/sj-wellness` → Framework preset
+  **None**, Build command **empty**, Build output directory **`public`** → Save and Deploy.
+  Address: `https://<project-name>.pages.dev`.
+- **Vercel:** what the driver PWA uses. **Add New → Project → import the repo → Framework: Other** → Deploy
+  (`vercel.json` already points it at `public/`). Its free Hobby plan is for non-commercial use, so fine for
+  testing; once Coach Sonal uses it for her business, move to Cloudflare or Vercel Pro.
+- **Firebase Hosting:** `npx firebase-tools@latest init hosting:github` then `deploy --only hosting`
+  (`firebase.json` is ready; put the project ID in `.firebaserc`).
 
-### 5. Put the app on a phone
-Open `https://<project>.web.app/coach/` in Chrome (Android) or Safari (iPhone), then **Install app** (Android)
+Then set `APP_URL` in the Apps Script properties to the site address.
+
+### 4. Put the app on a phone
+Open `https://<your-site>/coach/` in Chrome (Android) or Safari (iPhone), then **Install app** (Android)
 or **Share → Add to Home Screen** (iPhone). New-form alerts arrive by email, so keep Gmail notifications on.
 
 ---
@@ -90,10 +88,14 @@ or **Share → Add to Home Screen** (iPhone). New-form alerts arrive by email, s
 1. Apps Script → Script properties: `AUTH_MODE` = `key`, `COACH_KEY` = a long random text
    (for example two UUIDs from <https://www.uuidgenerator.net/> joined together).
 2. `public/config.js`: `AUTH: 'key'`. Push.
-3. Send Coach Sonal `https://<project>.web.app/coach/?key=<COACH_KEY>` once, privately. She opens it and installs
+3. Send Coach Sonal `https://<your-site>/coach/?key=<COACH_KEY>` once, privately. She opens it and installs
    the app; the phone remembers the key and removes it from the address bar. To lock out an old phone, change `COACH_KEY`.
 
 ### Option B – Google sign-in (`google`, 15 minutes)
+This is the only part that needs a Firebase project (for Firebase Authentication). The steps below assume the
+site is on Firebase Hosting; if it is on Cloudflare or Vercel, use your site address in place of `<project>.web.app`
+and ask Claude to switch sign-in to the popup flow.
+
 1. Firebase console → **Build → Authentication → Get started → Sign-in method → Google → Enable → Save.**
 2. **Project settings (gear) → General → Your apps → Web (`</>`)** → nickname `web` → Register.
    Copy `apiKey`, `projectId`, `appId` into `FIREBASE` in `public/config.js` (`authDomain` = `<projectId>.web.app`).

@@ -1,8 +1,9 @@
-/* Feedback form page: /f/<code>. The code ties this page to one child; nothing else about the child is sent here. */
+/* Feedback form page: /f/?c=<code> (also accepts /f/<code>). The code ties this page to one child; nothing else about the child is sent here. */
 (function () {
   var root = document.getElementById('app');
   var m = location.pathname.match(/\/f\/([A-Za-z0-9]+)/);
-  var token = (m ? m[1] : (new URLSearchParams(location.search).get('t') || '')).toLowerCase();
+  var q = new URLSearchParams(location.search);
+  var token = (q.get('c') || q.get('t') || (m ? m[1] : '')).toLowerCase();
 
   function page(title, text, opts) {
     opts = opts || {};

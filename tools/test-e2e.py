@@ -47,7 +47,7 @@ with sync_playwright() as p:
     # 3. coach asks for feedback; the link belongs to this child
     pg.click(".blk >> text=Ask for feedback"); pg.wait_for_selector(".sheet .msg", timeout=8000)
     msg = pg.inner_text(".sheet .msg")
-    m = re.search(r"/f/([a-f0-9]{32})", msg); check(m is not None, "feedback message contains a personal link")
+    m = re.search(r"/f/\?c=([a-f0-9]{32})", msg); check(m is not None, "feedback message contains a personal link")
     token = m.group(1)
     wa = pg.locator(".sheet a.btn").get_attribute("href")
     check(wa.startswith("https://wa.me/919876543210?text="), "Send on WhatsApp opens a chat with this parent, message filled in")
@@ -59,7 +59,7 @@ with sync_playwright() as p:
 
     # 4. parent opens the personal link
     pp = ctx.new_page(); pp.on("pageerror", lambda e: errors.append(str(e)))
-    pp.goto(base + "/f/" + token); pp.wait_for_selector("text=Your feedback on Aditya", timeout=8000)
+    pp.goto(base + "/f/?c=" + token); pp.wait_for_selector("text=Your feedback on Aditya", timeout=8000)
     check(True, "feedback page greets the right child")
     shot(pp, "05_feedback_welcome.png")
     pp.click("text=Start"); pp.click("label[for=fb_rating_0]"); pp.click("label[for=fb_changes_0]")

@@ -581,7 +581,7 @@ async function openFeedbackSheet(c, reminder) {
   let link;
   try { link = await call('prepareFeedbackLink', { childId: c.key }); }
   catch (err) { sh.body.textContent = ''; sh.body.appendChild(h('p', { class: 'err' }, icon('alert'), err.message)); return; }
-  const url = location.origin + '/f/' + link.token;
+  const url = location.origin + '/f/?c=' + link.token;
   const msg = reminder
     ? 'Namaste ' + pf + '! A gentle reminder to share how ' + c.first + '’s swimming went. It takes about 2 minutes.\n\n' + url + '\n\nThank you,\nCoach Sonal'
     : 'Namaste ' + pf + '! ' + c.first + ' has finished this round of swimming sessions. I would love to hear how they went for your family. It takes about 2 minutes.\n\n' + url + '\n\nThank you,\nCoach Sonal, SJ Wellness';
