@@ -1,7 +1,7 @@
 /* SJ Wellness coach app – service worker. Keeps the app shell on the phone so it opens without signal.
    Data is cached by the app itself (last copy from the server); the server API is never cached here. */
-const CACHE = 'sjw-coach-v1';
-const SHELL = ['/coach/', '/coach/app.js', '/coach/manifest.webmanifest', '/coach/icon-192.png', '/assets/common.js', '/assets/style.css', '/config.js'];
+const CACHE = 'sjw-coach-v2';
+const SHELL = ['/coach/', '/coach/app.js', '/coach/manifest.webmanifest', '/coach/icon-192.png', '/assets/common.js', '/coach/coach.css', '/config.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

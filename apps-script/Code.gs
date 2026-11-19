@@ -8,7 +8,7 @@
  *   feedbackContext   – checks a feedback link code, returns only the child's and parent's first names
  *   submitFeedback    – saves feedback against the child the code belongs to, then closes the code
  *
- * Coach actions: getAll, markSeen, saveNote, prepareFeedbackLink, markLinkSent, setCalledBack, setContacted
+ * Coach actions: getAll, markSeen, saveNote, setStarted, prepareFeedbackLink, markLinkSent, setCalledBack, setContacted
  * Who may call them depends on AUTH_MODE:
  *   open   (default) anyone. For testing with made-up families only.
  *   key    requests must carry COACH_KEY (the coach opens /coach/?key=<COACH_KEY> once). No login screen.
@@ -26,7 +26,7 @@
  */
 
 var TABLES = {
-  Children: ['id', 'createdAt', 'updatedAt', 'matchKey', 'childName', 'parentName', 'mobile', 'seen', 'notes', 'data'],
+  Children: ['id', 'createdAt', 'updatedAt', 'matchKey', 'childName', 'parentName', 'mobile', 'seen', 'notes', 'data', 'startedOn'],
   Feedback: ['id', 'childId', 'token', 'submittedAt', 'rating', 'continueOn', 'referenceOk', 'seen', 'calledBack', 'data'],
   Links: ['token', 'childId', 'createdAt', 'sentAt', 'remindedAt', 'status', 'usedAt'],
   Referrals: ['id', 'childId', 'feedbackId', 'createdAt', 'name', 'mobile', 'contacted']
@@ -176,6 +176,18 @@ var COACH_ACTIONS_ = {
     return { done: true };
   },
 
+  /** Records the day of the first session (YYYY-MM-DD). An empty date clears it. */
+  setStarted: function (req) {
+    var id = String(req.childId || ''), date = String(req.date || '');
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw userError_('INVALID', 'Please choose a valid date.');
+    withLock_(function () {
+      var c = findChild_(id);
+      if (!c) throw userError_('NOT_FOUND', 'Child not found.');
+      update_('Children', c._row, { startedOn: date });
+    });
+    return { done: true };
+  },
+
   saveNote: function (req) {
     var id = String(req.childId || '');
     withLock_(function () {
@@ -286,9 +298,18 @@ function ss_() {
   }
   return ss;
 }
+var checkedHeaders_ = {};
 function sheet_(name) {
   var ss = ss_(), sh = ss.getSheetByName(name);
   if (!sh) { sh = ss.insertSheet(name); sh.appendRow(TABLES[name]); sh.setFrozenRows(1); }
+  else if (!checkedHeaders_[name]) {
+    // Adds any column that a newer version of this script expects, at the right-hand end. Existing data is untouched.
+    var have = headers_(sh);
+    TABLES[name].forEach(function (col) {
+      if (have.indexOf(col) < 0) { sh.getRange(1, have.length + 1).setValue(col); have.push(col); }
+    });
+  }
+  checkedHeaders_[name] = true;
   return sh;
 }
 function headers_(sh) { return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String); }

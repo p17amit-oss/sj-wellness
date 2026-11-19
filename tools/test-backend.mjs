@@ -87,6 +87,20 @@ const k2 = r.data.children.find((c) => c.id === kabir.id);
 assert.equal(k2.seen, true); assert.equal(k2.notes, 'Loves trains'); assert.equal(r.data.feedback[0].seen, true);
 assert.equal(r.data.feedback[0].calledBack, true); assert.equal(r.data.referrals[0].contacted, true); ok('seen, notes, called back and contacted are saved');
 
+// start date
+r = emu.post({ action: 'setStarted', childId: kabir.id, date: '2026-01-15', idToken: 'good' }); assert.equal(r.ok, true);
+r = emu.post({ action: 'getAll', idToken: 'good' }); assert.equal(r.data.children.find((c) => c.id === kabir.id).startedOn, '2026-01-15'); ok('coach can record the first-session date');
+r = emu.post({ action: 'setStarted', childId: kabir.id, date: 'soon', idToken: 'good' }); assert.equal(r.error, 'INVALID'); ok('start date must be a real date');
+r = emu.post({ action: 'setStarted', childId: kabir.id, date: '2026-01-15' }); assert.equal(r.error, 'AUTH'); ok('parents cannot change the start date');
+
+// older Sheets get the new column added automatically
+const legacy = createEmulator({ codePath: path.join(root, 'apps-script', 'Code.gs'), props: {} });
+legacy.sheets.set('Children', [['id', 'createdAt', 'updatedAt', 'matchKey', 'childName', 'parentName', 'mobile', 'seen', 'notes', 'data']]);
+legacy.post({ action: 'submitOnboarding', data: onboarding() });
+const lid = legacy.post({ action: 'getAll' }).data.children[0].id;
+legacy.post({ action: 'setStarted', childId: lid, date: '2025-12-01' });
+assert.equal(legacy.post({ action: 'getAll' }).data.children[0].startedOn, '2025-12-01'); ok('an existing Sheet gains the startedOn column without losing data');
+
 // expiry
 const links = emu.sheets.get('Links');
 const hdr = links[0]; const iC = hdr.indexOf('createdAt'), iT = hdr.indexOf('token');
