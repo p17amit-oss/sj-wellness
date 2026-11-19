@@ -63,18 +63,17 @@ The URL stays the same.
 ### 2. Fill in `public/config.js`
 `API_URL` = the Web app URL from step 1.5. Keep `AUTH: 'open'`. Commit and push. Not a secret.
 
-### 3. Host the site (pick one; every push to `main` then goes live)
-- **Cloudflare Pages (recommended):** free, and the free plan allows business use. dash.cloudflare.com →
-  **Workers & Pages → Create → Pages → Connect to Git** → choose `p17amit-oss/sj-wellness` → Framework preset
-  **None**, Build command **empty**, Build output directory **`public`** → Save and Deploy.
-  Address: `https://<project-name>.pages.dev`.
-- **Vercel:** what the driver PWA uses. **Add New → Project → import the repo → Framework: Other** → Deploy
-  (`vercel.json` already points it at `public/`). Its free Hobby plan is for non-commercial use, so fine for
-  testing; once Coach Sonal uses it for her business, move to Cloudflare or Vercel Pro.
-- **Firebase Hosting:** `npx firebase-tools@latest init hosting:github` then `deploy --only hosting`
-  (`firebase.json` is ready; put the project ID in `.firebaserc`).
+### 3. Host the site on Vercel (every push to `main` then goes live)
+1. vercel.com → **Add New… → Project → Import** `p17amit-oss/sj-wellness`.
+2. Framework Preset **Other**, Root Directory **./**, leave Build Command empty. `vercel.json` already tells it to
+   serve the `public/` folder. **Deploy.**
+3. The address is `https://<project-name>.vercel.app` (Settings → Domains). Use that production address for
+   parents; preview links for other branches are login-protected by Vercel.
+4. Set `APP_URL` in the Apps Script properties to that address.
 
-Then set `APP_URL` in the Apps Script properties to the site address.
+Vercel's free Hobby plan is for non-commercial use: fine for testing. Before Coach Sonal relies on it for her
+business, upgrade to Pro or move the same repo to Cloudflare Pages (free; output directory `public`, no build
+command) or Firebase Hosting (`firebase.json` is included). No code changes are needed for either.
 
 ### 4. Put the app on a phone
 Open `https://<your-site>/coach/` in Chrome (Android) or Safari (iPhone), then **Install app** (Android)
