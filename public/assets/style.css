@@ -302,3 +302,14 @@ a.mini,a.act{text-decoration:none}
 .gbtn svg{width:20px;height:20px}
 .sheet-wait{display:flex;gap:12px;align-items:center;margin-top:16px;color:var(--mist)}
 .sheet-wait .spinner{margin-top:0;width:22px;height:22px}
+/* ticked state for single tick boxes (WhatsApp on this number, consent, families agreed) */
+.consent.on .ind{border-color:var(--pool);background:var(--pool)}
+.consent.on .ind .ic{opacity:1}
+.consent:has(input:focus-visible){outline:3px solid var(--buoy);outline-offset:2px}
+/* date of birth: Day / Month / Year dropdowns */
+.dob{display:grid;grid-template-columns:.8fr 1.5fr 1fr;gap:10px}
+.dob select{width:100%;min-height:54px;padding:0 34px 0 14px;font:inherit;font-size:1rem;color:var(--ink);background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%230E3B4A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;border:1.5px solid var(--line);border-radius:10px;-webkit-appearance:none;appearance:none;cursor:pointer}
+.dob select.empty{color:#8A9AA0}
+.dob select:focus{outline:none;border-color:var(--pool);box-shadow:0 0 0 3px rgba(14,59,74,.14)}
+.has-err .dob select{border-color:var(--alert)}
+.helper.warn{color:var(--alert)}

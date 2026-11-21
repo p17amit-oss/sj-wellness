@@ -75,6 +75,7 @@ function FormApp(def, root) {
       return frag;
     }
     if (f.type === 'radio' || f.type === 'check') return choiceField(f);
+    if (f.type === 'dob') return dobField(f);
     if (f.type === 'toggle' || f.type === 'agree') return toggleField(f);
     if (f.type === 'reveal') {
       if (F.data[f.k]) return h('span');
@@ -108,6 +109,52 @@ function FormApp(def, root) {
     });
     add(box, errLine(f.k));
     return box;
+  }
+  /* Date of birth as three dropdowns (Day, Month, Year): much easier on a phone than scrolling a calendar back several years. */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var dobParts = {};
+  function partsOf(k) {
+    if (!dobParts[k]) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(F.data[k] || ''); dobParts[k] = m ? { y: m[1], m: String(+m[2]), d: String(+m[3]) } : { y: '', m: '', d: '' }; }
+    return dobParts[k];
+  }
+  function dobProblem(k) {
+    var p = partsOf(k);
+    if (!p.d && !p.m && !p.y) return 'empty';
+    if (!p.d || !p.m || !p.y) return 'partial';
+    return +p.d > new Date(+p.y, +p.m, 0).getDate() ? 'nodate' : '';
+  }
+  function dobField(f) {
+    var id = fid(f.k), err = F.errors[f.k], p = partsOf(f.k), year = new Date().getFullYear();
+    var fs = h('fieldset', { class: 'field' + (err ? ' has-err' : '') });
+    fs.appendChild(h('legend', { class: 'lbl' }, fmt(f.label), f.req && reqTag()));
+    var helper = h('p', { class: 'helper', 'aria-live': 'polite' });
+    function sel(part, label, opts) {
+      var s = h('select', { id: id + '_' + part, 'aria-label': label, autocomplete: 'off' });
+      s.appendChild(h('option', { value: '', text: label }));
+      opts.forEach(function (o) { s.appendChild(h('option', { value: o[0], text: o[1] })); });
+      s.value = p[part];
+      if (!s.value) s.classList.add('empty');
+      s.addEventListener('change', function () {
+        p[part] = s.value; s.classList.toggle('empty', !s.value);
+        F.data[f.k] = dobProblem(f.k) ? '' : p.y + '-' + ('0' + p.m).slice(-2) + '-' + ('0' + p.d).slice(-2);
+        saveDraft();
+        if (F.errors[f.k]) { delete F.errors[f.k]; fs.classList.remove('has-err'); var e = fs.querySelector('.err'); if (e) e.remove(); }
+        showDob();
+      });
+      return s;
+    }
+    var days = [], months = MONTHS.map(function (m, i) { return [String(i + 1), m]; }), years = [];
+    for (var d = 1; d <= 31; d++) days.push([String(d), String(d)]);
+    for (var y = year; y >= year - 25; y--) years.push([String(y), String(y)]);
+    fs.appendChild(h('div', { class: 'dob' }, sel('d', 'Day', days), sel('m', 'Month', months), sel('y', 'Year', years)));
+    function showDob() {
+      if (dobProblem(f.k) === 'nodate') { helper.textContent = MONTHS[+p.m - 1] + ' ' + p.y + ' has only ' + new Date(+p.y, +p.m, 0).getDate() + ' days. Please check the day.'; helper.className = 'helper warn'; return; }
+      helper.className = 'helper'; setAge(helper, F.data[f.k]);
+    }
+    showDob();
+    fs.appendChild(helper);
+    add(fs, errLine(f.k));
+    return fs;
   }
   function setAge(el, v) { var a = ageFromDob(v); el.textContent = a != null && a >= 0 && a < 30 ? (a === 1 ? 'Age: 1 year' : 'Age: ' + a + ' years') : ''; }
 
@@ -203,6 +250,14 @@ function FormApp(def, root) {
         return;
       }
       if (f.type === 'agree') { if (v !== true) errs[f.k] = 'Tick this to confirm, or remove the families above.'; return; }
+      if (f.type === 'dob') {
+        var pr = dobProblem(f.k);
+        if (pr === 'empty') { if (f.req) errs[f.k] = 'Choose the day, month and year of birth.'; return; }
+        if (pr === 'partial') { errs[f.k] = 'Choose all three: day, month and year.'; return; }
+        if (pr === 'nodate') { errs[f.k] = 'This date does not exist. Please check the day.'; return; }
+        var ag = ageFromDob(v); if (ag == null || ag < 0) errs[f.k] = 'The date of birth cannot be in the future.';
+        return;
+      }
       if (f.req && isBlank(v)) {
         errs[f.k] = f.type === 'check' ? 'Choose at least one option.' : f.type === 'radio' ? 'Choose one option.' : f.type === 'date' ? 'Enter the date of birth.' : 'This is needed to continue.';
         return;
@@ -245,14 +300,14 @@ function FormApp(def, root) {
     saveDraft(); render(); window.scrollTo(0, 0);
   }
   function startOver() {
-    clearDraft(); F.step = -1; F.data = def.fresh(); F.errors = {}; F.done = false; F.restored = false; F.fromReview = false;
+    clearDraft(); dobParts = {}; F.step = -1; F.data = def.fresh(); F.errors = {}; F.done = false; F.restored = false; F.fromReview = false;
     render(); window.scrollTo(0, 0);
   }
   function open(ctx) { F.ctx = ctx; startOver(); }
   api.keepAndRestart = function (keys) {
     var keep = def.fresh();
     keys.forEach(function (k) { if (F.data[k] != null) keep[k] = F.data[k]; });
-    F.data = keep; F.done = false; F.errors = {}; F.restored = false; F.fromReview = false; F.step = 0;
+    F.data = keep; dobParts = {}; F.done = false; F.errors = {}; F.restored = false; F.fromReview = false; F.step = 0;
     saveDraft(); render(); window.scrollTo(0, 0);
   };
 
@@ -272,7 +327,7 @@ function FormApp(def, root) {
     var v = d[f.k];
     if (f.type === 'check') return withOther(v, f.other ? d[f.other] : '').join(', ');
     if (f.type === 'radio' && v === 'Other' && f.other && d[f.other]) return d[f.other];
-    if (f.type === 'date') { var a = ageFromDob(v); return v ? fmtDate(v + 'T00:00:00') + (a != null ? ' (age ' + a + ')' : '') : ''; }
+    if (f.type === 'date' || f.type === 'dob') { var a = ageFromDob(v); return v ? fmtDate(v + 'T00:00:00') + (a != null ? ' (age ' + a + ')' : '') : ''; }
     if (f.type === 'toggle') return v === false ? 'No' : 'Yes';
     return v;
   }
@@ -340,7 +395,7 @@ var ONBOARD = {
     child: { name: 'Your child', title: 'Who will be swimming with us?', lead: 'A few basics about your child to begin.', fields: [
       { k: 'childName', label: "Child's full name", short: 'Name', type: 'text', req: true, retitle: true },
       { k: 'nickname', label: 'Name your child likes to be called', short: 'Likes to be called', hint: 'Only if different, such as a pet name', type: 'text', retitle: true },
-      { k: 'dob', label: 'Date of birth', short: 'Date of birth', type: 'date', req: true },
+      { k: 'dob', label: 'Date of birth', short: 'Date of birth', type: 'dob', req: true },
       { k: 'gender', label: 'Gender', short: 'Gender', type: 'radio', cols: 3, options: ['Boy', 'Girl', 'Prefer not to say'] },
       { k: 'school', label: 'School', short: 'School', type: 'text', pair: true },
       { k: 'grade', label: 'Class', short: 'Class', type: 'text', pair: true }
@@ -368,7 +423,7 @@ var ONBOARD = {
       { k: 'loves', label: 'What does {name} love?', short: 'Loves', hint: 'Songs, toys, characters or games. Coach Sonal uses these to motivate.', type: 'textarea' }
     ]},
     goals: { name: 'Goals & support', title: 'What you hope swimming gives {name}', lead: 'Your priorities shape how Coach Sonal plans the sessions.', fields: [
-      { k: 'goals', label: 'Your main goals', short: 'Goals', hint: 'Choose up to three', type: 'check', cols: 2, max: 3,
+      { k: 'goals', label: 'Your main goals', short: 'Goals', hint: 'Choose up to five', type: 'check', cols: 2, max: 5,
         options: ['Safety in water', 'Confidence', 'Calmness', 'Better sleep', 'Strength and fitness', 'Social skills', 'Following instructions', 'Fun and play', 'Learning strokes'] },
       { k: 'goalsNote', label: 'Anything specific you are hoping for?', short: 'Specific hopes', type: 'textarea' },
       { sub: 'Therapy and support' },
@@ -471,7 +526,7 @@ var FEEDBACK = {
       h('section', { class: 'askreview' },
         h('h2', { text: 'One more way to help' }),
         h('p', { text: 'A Google review helps other parents find Coach Sonal. Please write about your experience in your own words.' }),
-        h('a', { class: 'btn btn-soft block', href: (window.SJ_CONFIG || {}).MAPS_URL, target: '_blank', rel: 'noopener' }, icon('star'), 'Write a Google review')),
+        h('a', { class: 'btn btn-soft block', href: (window.SJ_CONFIG || {}).REVIEW_URL || (window.SJ_CONFIG || {}).MAPS_URL, target: '_blank', rel: 'noopener' }, icon('star'), 'Write a Google review')),
       null);
   },
   onSubmit: function (data, ctx) { return api('submitFeedback', { token: ctx.token, data: data }); }

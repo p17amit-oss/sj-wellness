@@ -15,5 +15,7 @@ window.SJ_CONFIG = {
     appId: ''
   },
   // Google Maps listing, used for the "Write a Google review" button after feedback
-  MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A'
+  MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A',
+  // Opens Google's "rate and review" box for SJ Wellness Consultant and Swimming Coach directly (Google place ID).
+  REVIEW_URL: 'https://search.google.com/local/writereview?placeid=ChIJ83LREBLD5zsRIyAEh45XQ-c'
 };

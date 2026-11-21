@@ -17,7 +17,7 @@ const emu = createEmulator({
   dataFile
 });
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-const DEV_CONFIG = `window.SJ_CONFIG = { API_URL: '/api', AUTH: '${process.env.AUTH_MODE || 'open'}', FIREBASE: {}, MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A' };`;
+const DEV_CONFIG = `window.SJ_CONFIG = { API_URL: '/api', AUTH: '${process.env.AUTH_MODE || 'open'}', FIREBASE: {}, MAPS_URL: 'https://maps.app.goo.gl/tiZRrPpCCRnW7KR2A', REVIEW_URL: 'https://search.google.com/local/writereview?placeid=ChIJ83LREBLD5zsRIyAEh45XQ-c' };`;
 
 function send(res, code, type, body) { res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'Referrer-Policy': 'no-referrer' }); res.end(body); }
 function fileFor(p) {
